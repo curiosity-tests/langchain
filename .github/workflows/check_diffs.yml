@@ -14,6 +14,21 @@
 name: "🔧 CI"
 
 on:
+  workflow_dispatch:
+    inputs:
+      leg:
+        description: "baseline (uninstrumented) or instrumented (under chalk/curiosity)"
+        type: choice
+        options: [instrumented, baseline]
+        default: instrumented
+      profile:
+        description: "CrashOverride chalk profile"
+        type: string
+        default: curiosity-tests-racecar
+      racecar_run:
+        description: "racecar correlation token, echoed into the run name"
+        type: string
+        default: ""
   push:
     branches: [master]
   pull_request:
@@ -27,15 +42,21 @@ on:
 # a limited number of job runners to be active at the same time, so it's better to
 # cancel pointless jobs early so that more useful jobs can run sooner.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.leg || 'push' }}-${{ inputs.racecar_run }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
+  id-token: write
 
 env:
+  # The one variable that separates the arms: on baseline, action-checkout
+  # skips its Set up Chalk step entirely.
+  CHALK_ON: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
   UV_FROZEN: "true"
   UV_NO_SYNC: "true"
+
+run-name: "🔧 CI ${{ inputs.leg || 'push' }} ${{ inputs.racecar_run }}"
 
 jobs:
   # This job analyzes which files changed and creates a dynamic test matrix
@@ -46,7 +67,18 @@ jobs:
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'ci-ignore') }}
     steps:
       - name: "📋 Checkout Code"
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: crashappsec/action-checkout@main
+        with:
+          chalk: ${{ env.CHALK_ON }}
+          profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+          observables_continue_on_error: false
+          lfs: false
+      - name: Assert instrumentation is live
+        if: env.CHALK_ON == 'true'
+        run: |
+          test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+          test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
       - name: "🐍 Setup Python 3.11"
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -81,6 +113,8 @@ jobs:
       fail-fast: false
     uses: ./.github/workflows/_lint.yml
     with:
+      chalk_on: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+      profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
       working-directory: ${{ matrix.job-configs.working-directory }}
       python-version: ${{ matrix.job-configs.python-version }}
     secrets: inherit
@@ -95,6 +129,8 @@ jobs:
       fail-fast: false
     uses: ./.github/workflows/_test.yml
     with:
+      chalk_on: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+      profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
       working-directory: ${{ matrix.job-configs.working-directory }}
       python-version: ${{ matrix.job-configs.python-version }}
     secrets: inherit
@@ -109,6 +145,8 @@ jobs:
       fail-fast: false
     uses: ./.github/workflows/_test_pydantic.yml
     with:
+      chalk_on: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+      profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
       working-directory: ${{ matrix.job-configs.working-directory }}
       pydantic-version: ${{ matrix.job-configs.pydantic-version }}
     secrets: inherit
@@ -124,6 +162,8 @@ jobs:
       fail-fast: false
     uses: ./.github/workflows/_compile_integration_test.yml
     with:
+      chalk_on: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+      profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
       working-directory: ${{ matrix.job-configs.working-directory }}
       python-version: ${{ matrix.job-configs.python-version }}
     secrets: inherit
@@ -139,6 +179,8 @@ jobs:
       fail-fast: false
     uses: ./.github/workflows/_test_vcr.yml
     with:
+      chalk_on: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+      profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
       working-directory: ${{ matrix.job-configs.working-directory }}
       python-version: ${{ matrix.job-configs.python-version }}
     secrets: inherit
@@ -159,7 +201,20 @@ jobs:
       run:
         working-directory: ${{ matrix.job-configs.working-directory }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+      - name: Checkout code
+        uses: crashappsec/action-checkout@main
+        with:
+          chalk: ${{ env.CHALK_ON }}
+          profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+          observables_continue_on_error: false
+          lfs: false
+      - name: Assert instrumentation is live
+        # not the job's defaults.run.working-directory: that directory may not exist yet
+        working-directory: ${{ github.workspace }}
+        if: env.CHALK_ON == 'true'
+        run: |
+          test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+          test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
 
       - name: "🐍 Set up Python ${{ matrix.job-configs.python-version }} + UV"
         uses: "./.github/actions/uv_setup"
@@ -195,7 +250,19 @@ jobs:
     if: github.repository_owner == 'langchain-ai'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+      - name: Checkout code
+        uses: crashappsec/action-checkout@main
+        with:
+          chalk: ${{ env.CHALK_ON }}
+          profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+          observables_continue_on_error: false
+          lfs: false
+      - name: Assert instrumentation is live
+        if: env.CHALK_ON == 'true'
+        run: |
+          test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+          test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
       - name: "🐍 Setup Python 3.11"
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -227,6 +294,19 @@ jobs:
       RESULTS_JSON: ${{ toJSON(needs.*.result) }}
       EXIT_CODE: ${{!contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && '0' || '1'}}
     steps:
+      - name: Checkout code
+        uses: crashappsec/action-checkout@main
+        with:
+          chalk: ${{ env.CHALK_ON }}
+          profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+          observables_continue_on_error: false
+          lfs: false
+      - name: Assert instrumentation is live
+        if: env.CHALK_ON == 'true'
+        run: |
+          test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+          test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
+
       - name: "🎉 All Checks Passed"
         run: |
           echo $JOBS_JSON
