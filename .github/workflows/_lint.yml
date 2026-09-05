@@ -10,6 +10,14 @@ name: "🧹 Linting"
 on:
   workflow_call:
     inputs:
+      chalk_on:
+        description: "racecar: instrumented arm switch, passed down by the caller"
+        type: string
+        default: "false"
+      profile:
+        description: "CrashOverride chalk profile"
+        type: string
+        default: curiosity-tests-racecar
       working-directory:
         required: true
         type: string
@@ -21,8 +29,12 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 env:
+  # The one variable that separates the arms: on baseline, action-checkout
+  # skips its Set up Chalk step entirely.
+  CHALK_ON: ${{ inputs.chalk_on }}
   WORKDIR: ${{ inputs.working-directory == '' && '.' || inputs.working-directory }}
 
   # This env var allows us to get inline annotations when ruff has complaints.
@@ -38,7 +50,17 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: "📋 Checkout Code"
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        uses: crashappsec/action-checkout@main
+        with:
+          chalk: ${{ env.CHALK_ON }}
+          profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+          observables_continue_on_error: false
+          lfs: false
+      - name: Assert instrumentation is live
+        if: env.CHALK_ON == 'true'
+        run: |
+          test -n "${CURIOSITY_ROOT:-}" || { echo "::error::CURIOSITY_ROOT unset - observables never installed"; exit 1; }
+          test -S "${CURIOSITY_SOCKET_NAME:?socket name unset}" || { echo "::error::co-hostd socket absent"; exit 1; }
 
       - name: "🐍 Set up Python ${{ inputs.python-version }} + UV"
         uses: "./.github/actions/uv_setup"
