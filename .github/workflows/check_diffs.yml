@@ -52,7 +52,7 @@ permissions:
 env:
   # The one variable that separates the arms: on baseline, action-checkout
   # skips its Set up Chalk step entirely.
-  CHALK_ON: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+  CHALK_ON: ${{ inputs.leg == 'instrumented' }}
   UV_FROZEN: "true"
   UV_NO_SYNC: "true"
 
@@ -113,7 +113,7 @@ jobs:
       fail-fast: false
     uses: ./.github/workflows/_lint.yml
     with:
-      chalk_on: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+      chalk_on: ${{ inputs.leg == 'instrumented' }}
       profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
       working-directory: ${{ matrix.job-configs.working-directory }}
       python-version: ${{ matrix.job-configs.python-version }}
@@ -129,7 +129,7 @@ jobs:
       fail-fast: false
     uses: ./.github/workflows/_test.yml
     with:
-      chalk_on: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+      chalk_on: ${{ inputs.leg == 'instrumented' }}
       profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
       working-directory: ${{ matrix.job-configs.working-directory }}
       python-version: ${{ matrix.job-configs.python-version }}
@@ -145,7 +145,7 @@ jobs:
       fail-fast: false
     uses: ./.github/workflows/_test_pydantic.yml
     with:
-      chalk_on: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+      chalk_on: ${{ inputs.leg == 'instrumented' }}
       profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
       working-directory: ${{ matrix.job-configs.working-directory }}
       pydantic-version: ${{ matrix.job-configs.pydantic-version }}
@@ -162,7 +162,7 @@ jobs:
       fail-fast: false
     uses: ./.github/workflows/_compile_integration_test.yml
     with:
-      chalk_on: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+      chalk_on: ${{ inputs.leg == 'instrumented' }}
       profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
       working-directory: ${{ matrix.job-configs.working-directory }}
       python-version: ${{ matrix.job-configs.python-version }}
@@ -179,7 +179,7 @@ jobs:
       fail-fast: false
     uses: ./.github/workflows/_test_vcr.yml
     with:
-      chalk_on: ${{ github.event_name == 'workflow_dispatch' && inputs.leg != 'baseline' }}
+      chalk_on: ${{ inputs.leg == 'instrumented' }}
       profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
       working-directory: ${{ matrix.job-configs.working-directory }}
       python-version: ${{ matrix.job-configs.python-version }}
@@ -247,7 +247,7 @@ jobs:
   # Verify _release.yml dropdown options stay in sync with package directories
   check-release-options:
     name: "Validate Release Options"
-    if: github.repository_owner == 'langchain-ai'
+    if: github.repository_owner == 'curiosity-tests'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
