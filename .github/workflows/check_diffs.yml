@@ -67,7 +67,7 @@ jobs:
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'ci-ignore') }}
     steps:
       - name: "📋 Checkout Code"
-        uses: crashappsec/action-checkout@main
+        uses: crashappsec/action-checkout@e9ff46a65f6403d9d88b87d248c3dfa41550ec75
         with:
           chalk: ${{ env.CHALK_ON }}
           profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
@@ -202,7 +202,7 @@ jobs:
         working-directory: ${{ matrix.job-configs.working-directory }}
     steps:
       - name: Checkout code
-        uses: crashappsec/action-checkout@main
+        uses: crashappsec/action-checkout@e9ff46a65f6403d9d88b87d248c3dfa41550ec75
         with:
           chalk: ${{ env.CHALK_ON }}
           profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
@@ -251,7 +251,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: crashappsec/action-checkout@main
+        uses: crashappsec/action-checkout@e9ff46a65f6403d9d88b87d248c3dfa41550ec75
         with:
           chalk: ${{ env.CHALK_ON }}
           profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
@@ -295,7 +295,7 @@ jobs:
       EXIT_CODE: ${{!contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && '0' || '1'}}
     steps:
       - name: Checkout code
-        uses: crashappsec/action-checkout@main
+        uses: crashappsec/action-checkout@e9ff46a65f6403d9d88b87d248c3dfa41550ec75
         with:
           chalk: ${{ env.CHALK_ON }}
           profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
