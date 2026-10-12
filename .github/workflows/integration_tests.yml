@@ -53,8 +53,6 @@ on:
       python-version-override:
         type: string
         description: "Python version override — defaults to 3.10 and 3.14 in matrix (e.g. 3.11)"
-  schedule:
-    - cron: "0 13 * * *" # Runs daily at 1PM UTC (9AM EDT/6AM PDT)
 
 permissions:
   contents: read
